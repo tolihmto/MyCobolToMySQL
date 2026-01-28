@@ -94,7 +94,9 @@ public class ImportService : IImportService
         {
             ct.ThrowIfCancellationRequested();
             var line = await sr.ReadLineAsync();
-            if (line != null) yield return line;
+            if (line == null) continue;
+            if (line.Length == 0) continue; // skip empty lines (e.g., trailing newline)
+            yield return line;
         }
     }
 }

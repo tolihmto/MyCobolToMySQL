@@ -4,11 +4,14 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using System.IO;
 using System.Data;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CobolToMySqlStudio.Application.Interfaces;
 using CobolToMySqlStudio.Domain.Models;
 using Microsoft.Win32;
+using CobolToMySqlStudio.Infrastructure;
+using CobolToMySqlStudio.UI;
 
 namespace CobolToMySqlStudio.UI.ViewModels;
 
@@ -36,6 +39,7 @@ public partial class MainViewModel : ObservableObject
         _db = db;
 
         RootNodes = new ObservableCollection<CopybookNode>();
+        StagingColumns = new ObservableCollection<string>();
         OpenCopybookCommand = new AsyncRelayCommand(OpenCopybookAsync);
         ImportXmlCommand = new AsyncRelayCommand(ImportXmlAsync);
         PreviewDdlCommand = new RelayCommand(PreviewDdl, () => _root != null && !string.IsNullOrWhiteSpace(StagingTableName));
@@ -46,11 +50,14 @@ public partial class MainViewModel : ObservableObject
         GenerateSqlCommand = new RelayCommand(GenerateSql, () => _root != null && !string.IsNullOrWhiteSpace(TransformDsl));
         ApplyTransformCommand = new AsyncRelayCommand(ApplyTransformAsync, () => !string.IsNullOrWhiteSpace(GeneratedSql));
         PreviewResultsCommand = new AsyncRelayCommand(PreviewResultsAsync);
+        OpenConnectionDialogCommand = new RelayCommand(OpenConnectionDialog);
+        TestConnectionCommand = new AsyncRelayCommand(TestConnectionAsync);
     }
 
     private CopybookNode? _root;
 
     public ObservableCollection<CopybookNode> RootNodes { get; }
+    public ObservableCollection<string> StagingColumns { get; }
 
     private string _statusText = "Ready";
     public string StatusText { get => _statusText; set => SetProperty(ref _statusText, value); }
@@ -93,6 +100,8 @@ public partial class MainViewModel : ObservableObject
     public IRelayCommand GenerateSqlCommand { get; }
     public IAsyncRelayCommand ApplyTransformCommand { get; }
     public IAsyncRelayCommand PreviewResultsCommand { get; }
+    public IRelayCommand OpenConnectionDialogCommand { get; }
+    public IAsyncRelayCommand TestConnectionCommand { get; }
 
     private async Task OpenCopybookAsync()
     {
@@ -109,12 +118,28 @@ public partial class MainViewModel : ObservableObject
             _root = result.Root;
             RootNodes.Clear();
             foreach (var child in _root.Children) RootNodes.Add(child);
+            StagingColumns.Clear();
+            foreach (var leaf in GetLeaves(_root).Where(l => !l.IsFiller))
+            {
+                StagingColumns.Add(leaf.Name.Replace('-', '_'));
+            }
             StatusText = $"Parsed copybook. Total length ~ {_layout.GetTotalLength(result.Root)} bytes";
             if (string.IsNullOrWhiteSpace(StagingTableName)) StagingTableName = "staging_" + Path.GetFileNameWithoutExtension(dlg.SafeFileName).ToLowerInvariant();
             (PreviewDdlCommand as RelayCommand)?.NotifyCanExecuteChanged();
             (RunImportCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
             (GenerateSqlCommand as RelayCommand)?.NotifyCanExecuteChanged();
             (ApplyDdlCommand as AsyncRelayCommand)?.NotifyCanExecuteChanged();
+
+            // On dataset change, drop the previous curated view so Preview falls back to staging
+            try
+            {
+                await _db.ExecuteNonQueryAsync("DROP VIEW IF EXISTS `curated_view`");
+                AppendLog("Dropped existing curated_view to switch dataset.");
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"Drop view warning: {ex.Message}");
+            }
         }
     }
 
@@ -305,5 +330,50 @@ public partial class MainViewModel : ObservableObject
     private void AppendLog(string text)
     {
         Logs += $"[{DateTime.Now:HH:mm:ss}] {text}\r\n";
+    }
+
+    private void OpenConnectionDialog()
+    {
+        var dlg = new ConnectionDialog();
+        var vm = new ConnectionViewModel();
+        if (_db is MySqlDbExecutor mysqlExisting)
+        {
+            vm.PrefillFromConnectionString(mysqlExisting.GetConnectionString());
+        }
+        vm.CloseRequested += (ok, connStr) =>
+        {
+            if (ok && !string.IsNullOrWhiteSpace(connStr))
+            {
+                ApplyConnectionString(connStr);
+                StatusText = "Connection updated.";
+            }
+            dlg.DialogResult = ok;
+            dlg.Close();
+        };
+        dlg.DataContext = vm;
+        dlg.Owner = System.Windows.Application.Current?.MainWindow;
+        dlg.ShowDialog();
+    }
+
+    private async Task TestConnectionAsync()
+    {
+        try
+        {
+            var rows = await _db.QueryAsync("SELECT 1");
+            StatusText = rows.Count > 0 ? "Connection OK" : "Connection test returned no rows";
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Test connection error: {ex.Message}");
+            StatusText = "Connection failed. See Logs.";
+        }
+    }
+
+    private void ApplyConnectionString(string cs)
+    {
+        if (_db is MySqlDbExecutor mysql)
+        {
+            mysql.ApplyConnectionString(cs);
+        }
     }
 }

@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\CobolToMySqlStudio.Application\CobolToMySqlStudio.Application.csproj" />
     <ProjectReference Include="..\CobolToMySqlStudio.Domain\CobolToMySqlStudio.Domain.csproj" />
+    <ProjectReference Include="..\CobolToMySqlStudio.Infrastructure\CobolToMySqlStudio.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

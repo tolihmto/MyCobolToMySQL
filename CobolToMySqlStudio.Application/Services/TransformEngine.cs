@@ -8,22 +8,27 @@ public class TransformEngine : ITransformEngine
     // Minimal DSL translator: supports MOVE, COMPUTE with +,-,*,/, IF ... THEN ... ELSE ..., DATE8->DATE
     public string GenerateSql(string sourceTable, string targetTableOrView, string dsl)
     {
-        // For demo, generate a view that selects * and appends derived columns per DSL lines
+        // Build the projection list solely from DSL to avoid duplicate column names (no implicit s.*)
         var select = new StringBuilder();
         select.AppendLine($"CREATE OR REPLACE VIEW `{targetTableOrView}` AS");
-        select.Append("SELECT s.*");
+        var projections = new List<string>();
         foreach (var line in dsl.Replace("\r\n", "\n").Split('\n'))
         {
             var t = line.Trim();
             if (string.IsNullOrWhiteSpace(t)) continue;
             if (t.StartsWith("--")) continue;
             var sqlExpr = TranslateLine(t);
-            if (!string.IsNullOrEmpty(sqlExpr))
-            {
-                select.Append(", ").Append(sqlExpr);
-            }
+            if (!string.IsNullOrEmpty(sqlExpr)) projections.Add(sqlExpr);
         }
-        select.AppendLine();
+        if (projections.Count == 0)
+        {
+            // Fallback: select all source columns
+            select.AppendLine($"SELECT s.*");
+        }
+        else
+        {
+            select.Append("SELECT ").Append(string.Join(", ", projections)).AppendLine();
+        }
         select.AppendLine($"FROM `{sourceTable}` s;");
         return select.ToString();
     }

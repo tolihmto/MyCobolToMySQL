@@ -6,12 +6,19 @@ namespace CobolToMySqlStudio.Infrastructure;
 
 public class MySqlDbExecutor : IDbExecutor
 {
-    private readonly string _connectionString;
+    private string _connectionString;
 
     public MySqlDbExecutor(string connectionString)
     {
         _connectionString = connectionString;
     }
+
+    public void ApplyConnectionString(string connectionString)
+    {
+        _connectionString = connectionString ?? string.Empty;
+    }
+
+    public string GetConnectionString() => _connectionString;
 
     public async Task<int> ExecuteNonQueryAsync(string sql, CancellationToken ct = default)
         => await ExecuteNonQueryAsync(sql, Array.Empty<KeyValuePair<string, object?>>(), ct);
