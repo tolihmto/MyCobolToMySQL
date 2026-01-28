@@ -1,0 +1,27 @@
+@'
+# Build output
+**/bin/
+**/obj/
+
+# VS/Rider cache
+.vs/
+.idea/
+
+# User-specific
+*.user
+*.suo
+*.userprefs
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Packages (optional if using restore)
+packages/
+
+# Logs
+*.log
+
+# Local config (do not commit secrets)
+CobolToMySqlStudio.UI/appsettings.json
+'@ | Set-Content .gitignore
