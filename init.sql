@@ -5,13 +5,13 @@ CREATE DATABASE IF NOT EXISTS cobol_studio
 
 -- 2) Utilisateur local Thomas + mot de passe
 -- (crée pour localhost. Si tu utilises Docker/WSL, ajoute aussi l’host '%')
-CREATE USER IF NOT EXISTS 'Thomas'@'localhost' IDENTIFIED BY 'TomSecurePerso8794';
+CREATE USER IF NOT EXISTS 'username'@'localhost' IDENTIFIED BY 'your_password_1';
 -- Optionnel pour accès hors localhost (Docker, autres hôtes)
-CREATE USER IF NOT EXISTS 'Thomas'@'%' IDENTIFIED BY 'TomSecurePerso8794';
+CREATE USER IF NOT EXISTS 'username'@'%' IDENTIFIED BY 'your_password_2';
 
 -- 3) Droits sur la base
-GRANT ALL PRIVILEGES ON cobol_studio.* TO 'Thomas'@'localhost';
-GRANT ALL PRIVILEGES ON cobol_studio.* TO 'Thomas'@'%';
+GRANT ALL PRIVILEGES ON cobol_studio.* TO 'username'@'localhost';
+GRANT ALL PRIVILEGES ON cobol_studio.* TO 'username'@'%';
 FLUSH PRIVILEGES;
 
 -- 4) Sélectionner la base
